@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batalha Naval em Rede</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .panel h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        
+        .board {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 2px;
+            margin-bottom: 15px;
+        }
+        
+        .cell {
+            width: 100%;
+            aspect-ratio: 1;
+            border: 2px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #f0f0f0;
+        }
+        
+        .cell:hover {
+            transform: scale(0.95);
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+        }
+        
+        .cell.empty {
+            background: #e8f4f8;
+        }
+        
+        .cell.water {
+            background: #87ceeb;
+            color: #0077be;
+        }
+        
+        .cell.ship {
+            background: #90ee90;
+            color: #2d5a2d;
+        }
+        
+        .cell.hit {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .stat-box {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .info-section {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .info-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .ship-list {
+            list-style: none;
+        }
+        
+        .ship-list li {
+            padding: 5px 0;
+            font-size: 0.9em;
+            color: #555;
+        }
+        
+        .ship-list li.alive {
+            color: #2d5a2d;
+            font-weight: bold;
+        }
+        
+        .ship-list li.dead {
+            color: #999;
+            text-decoration: line-through;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .status-indicator.alive {
+            background: #4caf50;
+        }
+        
+        .status-indicator.dead {
+            background: #f44336;
+        }
+        
+        .update-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+            transition: background 0.3s ease;
+        }
+        
+        .update-button:hover {
+            background: #764ba2;
+        }
+        
+        .update-interval {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .update-interval label {
+            font-weight: bold;
+        }
+        
+        .update-interval input {
+            width: 80px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 30px;
+            font-size: 0.9em;
+        }
+        
+        .status-message {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚓ Batalha Naval em Rede</h1>
+        
+        <div class="main-grid">
+            <!-- Painel Esquerdo: Seu Tabuleiro -->
+            <div class="panel">
+                <h2>🎯 Seu Tabuleiro</h2>
+                <div id="statusMessage"></div>
+                <div class="board" id="localBoard"></div>
+                
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-label">Navios Ativos</div>
+                        <div class="stat-value" id="activeShips">6</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Pontos Sofridos</div>
+                        <div class="stat-value" id="pointsAgainst">0</div>
+                    </div>
+                </div>
+                
+                <div class="update-interval">
+                    <label>Atualizar a cada (segundos):</label>
+                    <input type="number" id="updateInterval" value="3" min="1" max="60">
+                    <button class="update-button" onClick="updateBoard()">Atualizar Agora</button>
+                </div>
+            </div>
+            
+            <!-- Painel Direito: Informações -->
+            <div class="panel">
+                <h2>📊 Informações</h2>
+                
+                <div class="info-section">
+                    <div class="info-title">Status dos Navios</div>
+                    <ul class="ship-list" id="shipStatus">
+                        <li><span class="status-indicator alive"></span>Porta-Aviões (5pts)</li>
+                        <li><span class="status-indicator alive"></span>Submarino 1 (3pts)</li>
+                        <li><span class="status-indicator alive"></span>Submarino 2 (3pts)</li>
+                        <li><span class="status-indicator alive"></span>Fragata 1 (2pts)</li>
+                        <li><span class="status-indicator alive"></span>Fragata 2 (2pts)</li>
+                        <li><span class="status-indicator alive"></span>Fragata 3 (2pts)</li>
+                    </ul>
+                </div>
+                
+                <div class="info-section">
+                    <div class="info-title">Legenda</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <div style="width: 30px; height: 30px; background: #87ceeb; border: 2px solid #ddd; margin-bottom: 5px;"></div>
+                            <span>Água</span>
+                        </div>
+                        <div>
+                            <div style="width: 30px; height: 30px; background: #90ee90; border: 2px solid #ddd; margin-bottom: 5px;"></div>
+                            <span>Navio</span>
+                        </div>
+                        <div>
+                            <div style="width: 30px; height: 30px; background: #ff6b6b; border: 2px solid #ddd; margin-bottom: 5px;"></div>
+                            <span>Acerto</span>
+                        </div>
+                        <div>
+                            <div style="width: 30px; height: 30px; background: #e8f4f8; border: 2px solid #ddd; margin-bottom: 5px;"></div>
+                            <span>Desconhecido</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-section">
+                    <div class="info-title">Instruções</div>
+                    <ul style="font-size: 0.9em; line-height: 1.6; color: #555;">
+                        <li>O tabuleiro é atualizado automaticamente</li>
+                        <li>Seus navios se movem periodicamente</li>
+                        <li>Posições de acerto aparecem em vermelho</li>
+                        <li>O servidor está na porta 8080</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Batalha Naval em Rede - Sistema de Visualização</p>
+            <p>Servidor: <span id="serverStatus">offline</span></p>
+        </div>
+    </div>
+    
+    <script>
+        // Configuração
+        const BOARD_ROWS = 10;
+        const BOARD_COLS = 10;
+        const API_BASE = 'http://127.0.0.1:8080';
+        
+        // Estado
+        let boardState = [];
+        let updateIntervalId = null;
+        
+        // Inicializar tabuleiro
+        function initBoard() {
+            const board = document.getElementById('localBoard');
+            board.innerHTML = '';
+            
+            for (let row = 0; row < BOARD_ROWS; row++) {
+                for (let col = 0; col < BOARD_COLS; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell empty';
+                    cell.id = `cell-${row}-${col}`;
+                    cell.textContent = `${row}.${col}`;
+                    board.appendChild(cell);
+                }
+            }
+        }
+        
+        // Atualizar tabuleiro
+        async function updateBoard() {
+            try {
+                const response = await fetch(`${API_BASE}/estado_local`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                // Atualizar estatísticas
+                document.getElementById('activeShips').textContent = data.navios_ativos || 0;
+                document.getElementById('pointsAgainst').textContent = data.score_contra || 0;
+                document.getElementById('serverStatus').textContent = 'online';
+                
+                // Desenhar tabuleiro com ataques
+                const board = document.getElementById('localBoard');
+                const cells = board.querySelectorAll('.cell');
+                cells.forEach(cell => {
+                    cell.className = 'cell empty';
+                });
+                
+                // Marcar acertos no tabuleiro
+                if (data.ataques && Array.isArray(data.ataques)) {
+                    data.ataques.forEach(ataque => {
+                        const cellId = `cell-${ataque.linha}-${ataque.coluna}`;
+                        const cell = document.getElementById(cellId);
+                        if (cell) {
+                            if (ataque.tipo === 'acerto') {
+                                cell.className = 'cell hit';
+                                cell.textContent = '💥';
+                            } else if (ataque.tipo === 'agua') {
+                                cell.className = 'cell water';
+                                cell.textContent = '💧';
+                            } else if (ataque.tipo === 'repetido') {
+                                cell.className = 'cell water';
+                                cell.textContent = '🔁';
+                            }
+                        }
+                    });
+                }
+                
+                showStatus('Tabuleiro atualizado com sucesso', 'success');
+            } catch (error) {
+                console.error('Erro ao atualizar:', error);
+                document.getElementById('serverStatus').textContent = 'offline';
+                showStatus('Erro ao conectar com servidor: ' + error.message, 'error');
+            }
+        }
+        
+        // Mostrar mensagem de status
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message ${type}`;
+            
+            setTimeout(() => {
+                statusDiv.textContent = '';
+                statusDiv.className = '';
+            }, 3000);
+        }
+        
+        // Iniciar atualização automática
+        function startAutoUpdate() {
+            const interval = parseInt(document.getElementById('updateInterval').value) * 1000;
+            
+            if (updateIntervalId) {
+                clearInterval(updateIntervalId);
+            }
+            
+            updateBoard(); // Primeira atualização imediata
+            updateIntervalId = setInterval(updateBoard, interval);
+        }
+        
+        // Event listeners
+        document.getElementById('updateInterval').addEventListener('change', startAutoUpdate);
+        
+        // Inicializar
+        initBoard();
+        startAutoUpdate();
+    </script>
+</body>
+</html>
