@@ -108,10 +108,8 @@ int shoot(const char* host, int port, int row, int col, TeamStats* stats) {
     stats->shots++;
     
     int result = 0;
-    if (strstr(response, "agua")) {
-        result = 0;
-    } else if (strstr(response, "repetido")) {
-        result = -1;
+    if (strstr(response, "repetido")) {
+        result = 2;
     } else if (strstr(response, "acerto")) {
         stats->hits++;
         if (strstr(response, "porta_avioes")) {
@@ -124,6 +122,8 @@ int shoot(const char* host, int port, int row, int col, TeamStats* stats) {
             stats->score += 2;
             result = 2;
         }
+    } else if (strstr(response, "agua")) {
+        result = 0;
     }
     
     free(response);
