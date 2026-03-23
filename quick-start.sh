@@ -4,8 +4,13 @@
 
 set -e
 
-PROJECT_DIR="/home/aluno/Documentos/batalha-naval-rede"
+PROJECT_DIR="/workspaces/batalha-naval-rede"
 cd "$PROJECT_DIR"
+
+if [ $? -ne 0 ]; then
+  echo "Erro: diretório $PROJECT_DIR não encontrado. Execute em /workspaces/batalha-naval-rede ou ajuste PROJECT_DIR."
+  exit 1
+fi
 
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║   Batalha Naval em Rede - Quick Start                    ║"

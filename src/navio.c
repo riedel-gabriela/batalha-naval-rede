@@ -11,6 +11,7 @@
 volatile int shutdown_flag = 0;
 
 void signal_handler(int sig) {
+    (void)sig;
     shutdown_flag = 1;
 }
 
@@ -36,45 +37,25 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Movimento do navio
+    // Movimento do navio desabilitado: posição fixa
     int current_col = 0;
-    int direction = 1;  // 1 = direita, -1 = esquerda
-    time_t last_move = time(NULL);
-    
+
+    // Enviar posição inicial (uma vez)
+    ShipEvent event;
+    event.ship_id = ship_id;
+    event.ship_type = ship_type;
+    event.row = ship_row;
+    event.col = current_col;
+    event.timestamp = time(NULL);
+
+    if (write(fifo_fd, &event, sizeof(ShipEvent)) != sizeof(ShipEvent)) {
+        perror("write FIFO");
+    } else {
+        printf("[NAVIO %d] Posicionado em (%d,%d) e aguardando\n", ship_id, ship_row, current_col);
+    }
+
     while (!shutdown_flag) {
-        // Verificar se deve mover
-        time_t now = time(NULL);
-        if (now - last_move >= MIN_TIME_PER_COLUMN) {
-            // Mover navio
-            current_col += direction;
-            
-            // Verificar limites e reverter direção se necessário
-            if (current_col >= BOARD_COLS) {
-                current_col = 0;
-                direction = 1;
-            } else if (current_col < 0) {
-                current_col = BOARD_COLS - 1;
-                direction = -1;
-            }
-            
-            // Criar evento
-            ShipEvent event;
-            event.ship_id = ship_id;
-            event.ship_type = ship_type;
-            event.row = ship_row;
-            event.col = current_col;
-            event.timestamp = now;
-            
-            // Enviar via FIFO
-            if (write(fifo_fd, &event, sizeof(ShipEvent)) != sizeof(ShipEvent)) {
-                perror("write FIFO");
-            }
-            
-            printf("[NAVIO %d] Moveu para coluna %d\n", ship_id, current_col);
-            last_move = now;
-        }
-        
-        // Dormir um pouco antes de verificar novamente
+        // Manter navio no lugar sem mover
         sleep(1);
     }
     

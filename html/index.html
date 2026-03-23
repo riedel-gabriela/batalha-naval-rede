@@ -377,7 +377,19 @@
                     cell.className = 'cell empty';
                 });
                 
-                // Marcar acertos no tabuleiro
+                // Marcar navios no tabuleiro
+                if (data.navios && Array.isArray(data.navios)) {
+                    data.navios.forEach(ship => {
+                        const cellId = `cell-${ship.linha}-${ship.coluna}`;
+                        const cell = document.getElementById(cellId);
+                        if (cell) {
+                            cell.className = 'cell ship';
+                            cell.textContent = '🚢';
+                        }
+                    });
+                }
+
+                // Marcar acertos no tabuleiro (sobrescreve navios)
                 if (data.ataques && Array.isArray(data.ataques)) {
                     data.ataques.forEach(ataque => {
                         const cellId = `cell-${ataque.linha}-${ataque.coluna}`;

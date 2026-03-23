@@ -18,6 +18,7 @@
 // Variáveis globais
 Board* board = NULL;
 pid_t ship_pids[TOTAL_NAVIOS];
+int fifo_fd = -1;
 volatile int shutdown_flag = 0;
 
 // Protótipos
@@ -25,7 +26,7 @@ void signal_handler(int sig);
 void create_ships();
 void handle_http_request(int client_socket, const char* request);
 void send_json_response(int client_socket, const char* json);
-void read_fifo_events();
+void read_fifo_events(int fifo_fd);
 void destroy_ships();
 
 // Conversão de tipo de navio para string
@@ -39,6 +40,8 @@ const char* get_ship_type_name(int type) {
 }
 
 int main(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
     
@@ -107,6 +110,13 @@ int main(int argc, char* argv[]) {
     
     printf("Tabuleiro inicializado com %d navios\n", board->alive_ships);
     
+    // Abrir FIFO para leitura não-bloqueante
+    fifo_fd = open(FIFO_PATH, O_RDONLY | O_NONBLOCK);
+    if (fifo_fd == -1) {
+        perror("open FIFO");
+        // Não retornar, servidor pode rodar sem eventos de navio
+    }
+
     // Criar servidor HTTP
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket == -1) {
@@ -143,30 +153,42 @@ int main(int argc, char* argv[]) {
         fd_set readfds;
         FD_ZERO(&readfds);
         FD_SET(server_socket, &readfds);
+        int max_fd = server_socket;
+
+        if (fifo_fd != -1) {
+            FD_SET(fifo_fd, &readfds);
+            if (fifo_fd > max_fd) max_fd = fifo_fd;
+        }
         
         struct timeval tv;
         tv.tv_sec = 2;
         tv.tv_usec = 0;
         
-        int activity = select(server_socket + 1, &readfds, NULL, NULL, &tv);
+        int activity = select(max_fd + 1, &readfds, NULL, NULL, &tv);
         
-        if (activity > 0 && FD_ISSET(server_socket, &readfds)) {
-            struct sockaddr_in client_addr;
-            socklen_t client_len = sizeof(client_addr);
-            
-            int client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_len);
-            if (client_socket != -1) {
-                // Ler requisição HTTP (sem timeout - apenas try once)
-                char buffer[8192];
-                ssize_t bytes = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
+        if (activity > 0) {
+            if (fifo_fd != -1 && FD_ISSET(fifo_fd, &readfds)) {
+                read_fifo_events(fifo_fd);
+            }
+
+            if (FD_ISSET(server_socket, &readfds)) {
+                struct sockaddr_in client_addr;
+                socklen_t client_len = sizeof(client_addr);
                 
-                if (bytes > 0) {
-                    buffer[bytes] = '\0';
-                    handle_http_request(client_socket, buffer);
+                int client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_len);
+                if (client_socket != -1) {
+                    // Ler requisição HTTP (sem timeout - apenas try once)
+                    char buffer[8192];
+                    ssize_t bytes = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
+                    
+                    if (bytes > 0) {
+                        buffer[bytes] = '\0';
+                        handle_http_request(client_socket, buffer);
+                    }
+                    
+                    // Fechar socket corretamente
+                    close(client_socket);
                 }
-                
-                // Fechar socket corretamente
-                close(client_socket);
             }
         }
     }
@@ -208,8 +230,32 @@ void handle_http_request(int client_socket, const char* request) {
             char json[16384];
             char acertos_str[10000] = "";
             
+            // Construir lista de navios
+            char navios_str[10000] = "";
+            int navios_first = 1;
+            for (int i = 0; i < TOTAL_NAVIOS; i++) {
+                if (board->ships[i].alive) {
+                    const char* tipo = "desconhecido";
+                    if (board->ships[i].type == PORTA_AVIOES) tipo = "porta_avioes";
+                    else if (board->ships[i].type == SUBMARINO) tipo = "submarino";
+                    else if (board->ships[i].type == FRAGATA) tipo = "fragata";
+
+                    char navio_item[128];
+                    snprintf(navio_item, sizeof(navio_item),
+                        "%s{\"id\":%d,\"linha\":%d,\"coluna\":%d,\"tipo\":\"%s\"}",
+                        navios_first ? "" : ",",
+                        board->ships[i].id,
+                        board->ships[i].row,
+                        board->ships[i].col,
+                        tipo);
+
+                    strcat(navios_str, navio_item);
+                    navios_first = 0;
+                }
+            }
+
             // Construir lista de acertos
-            int first = 1;
+            int acertos_first = 1;
             for (int i = 0; i < board->attack_count; i++) {
                 char tipo[20];
                 if (board->attacks[i].result == 0) {
@@ -223,12 +269,12 @@ void handle_http_request(int client_socket, const char* request) {
                 char acerto[256];
                 snprintf(acerto, sizeof(acerto),
                     "%s{\"linha\":%d,\"coluna\":%d,\"tipo\":\"%s\"}",
-                    first ? "" : ",",
+                    acertos_first ? "" : ",",
                     board->attacks[i].row,
                     board->attacks[i].col,
                     tipo);
                 strcat(acertos_str, acerto);
-                first = 0;
+                acertos_first = 0;
             }
             
             snprintf(json, sizeof(json),
@@ -240,10 +286,11 @@ void handle_http_request(int client_socket, const char* request) {
                 "\"navios_ativos\":%d,"
                 "\"score_contra\":%d,"
                 "\"ataque_count\":%d,"
+                "\"navios\":[%s],"
                 "\"ataques\":[%s]"
                 "}",
                 BOARD_ROWS, BOARD_COLS, board->alive_ships, board->score_against,
-                board->attack_count, acertos_str);
+                board->attack_count, navios_str, acertos_str);
             
             send_json_response(client_socket, json);
         }
@@ -400,6 +447,48 @@ void handle_http_request(int client_socket, const char* request) {
     }
     
     free(req_copy);
+}
+
+void read_fifo_events(int fifo_fd) {
+    if (fifo_fd < 0 || !board) return;
+
+    ShipEvent event;
+    ssize_t bytes;
+    while ((bytes = read(fifo_fd, &event, sizeof(event))) == sizeof(event)) {
+        // Localizar navio no tabuleiro
+        for (int i = 0; i < TOTAL_NAVIOS; i++) {
+            if (board->ships[i].id == event.ship_id && board->ships[i].alive) {
+                // Limpar posição anterior
+                if (board->ships[i].row >= 0 && board->ships[i].row < BOARD_ROWS &&
+                    board->ships[i].col >= 0 && board->ships[i].col < BOARD_COLS) {
+                    if (board->board_state[board->ships[i].row][board->ships[i].col] == SHIP) {
+                        board->board_state[board->ships[i].row][board->ships[i].col] = EMPTY;
+                    }
+                }
+
+                // Atualizar posição do navio
+                board->ships[i].col = event.col;
+                board->ships[i].row = event.row;
+                board->ships[i].last_change = event.timestamp;
+
+                // Marcar nova posição
+                if (event.row >= 0 && event.row < BOARD_ROWS &&
+                    event.col >= 0 && event.col < BOARD_COLS) {
+                    board->board_state[event.row][event.col] = SHIP;
+                }
+                break;
+            }
+        }
+    }
+
+    // Se read retornou 0, FIFO foi fechado pelo escritor; reabrir quando necessário
+    if (bytes == 0) {
+        close(fifo_fd);
+        fifo_fd = open(FIFO_PATH, O_RDONLY | O_NONBLOCK);
+        if (fifo_fd == -1) {
+            perror("open FIFO read");
+        }
+    }
 }
 
 void send_json_response(int client_socket, const char* json) {
