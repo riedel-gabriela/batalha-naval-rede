@@ -1,0 +1,8 @@
+# Binários compilados
+bin/
+
+# Objetos
+*.o
+
+# FIFO
+/tmp/batalha_naval_fifo
