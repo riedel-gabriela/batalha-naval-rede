@@ -238,6 +238,47 @@
             border: 1px solid #bee5eb;
         }
         
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .attack-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+        
+        .attack-table th {
+            background: #667eea;
+            color: white;
+            padding: 8px 10px;
+            text-align: left;
+            font-weight: bold;
+        }
+        
+        .attack-table td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .attack-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        .attack-table tr:hover {
+            background: #eef2ff;
+        }
+        
+        .result-agua { color: #0077be; font-weight: bold; }
+        .result-acerto { color: #d32f2f; font-weight: bold; }
+        .result-repetido { color: #f57c00; font-weight: bold; }
+        
+        .attack-history-container {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
         @media (max-width: 768px) {
             .main-grid {
                 grid-template-columns: 1fr;
@@ -322,6 +363,29 @@
                     </ul>
                 </div>
             </div>
+            
+            <!-- Painel de Histórico de Ataques (largura total) -->
+            <div class="panel full-width">
+                <h2>📋 Histórico de Ataques Recebidos</h2>
+                <div id="attackHistoryEmpty" class="info-section" style="text-align: center; color: #999;">
+                    Nenhum ataque recebido ainda.
+                </div>
+                <div class="attack-history-container" id="attackHistoryContainer" style="display: none;">
+                    <table class="attack-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Horário</th>
+                                <th>IP Atacante</th>
+                                <th>Posição</th>
+                                <th>Resultado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attackHistoryBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
         
         <div class="footer">
@@ -370,11 +434,14 @@
                 document.getElementById('pointsAgainst').textContent = data.score_contra || 0;
                 document.getElementById('serverStatus').textContent = 'online';
                 
-                // Desenhar tabuleiro com ataques
+                // Resetar tabuleiro
                 const board = document.getElementById('localBoard');
                 const cells = board.querySelectorAll('.cell');
                 cells.forEach(cell => {
                     cell.className = 'cell empty';
+                    // Restaurar coordenada
+                    const parts = cell.id.split('-');
+                    cell.textContent = `${parts[1]}.${parts[2]}`;
                 });
                 
                 // Marcar navios no tabuleiro
@@ -389,7 +456,7 @@
                     });
                 }
 
-                // Marcar acertos no tabuleiro (sobrescreve navios)
+                // Marcar ataques no tabuleiro
                 if (data.ataques && Array.isArray(data.ataques)) {
                     data.ataques.forEach(ataque => {
                         const cellId = `cell-${ataque.linha}-${ataque.coluna}`;
@@ -407,7 +474,13 @@
                             }
                         }
                     });
+                    
+                    // Atualizar histórico de ataques
+                    updateAttackHistory(data.ataques);
                 }
+                
+                // Atualizar status dos navios na sidebar
+                updateShipStatus(data);
                 
                 showStatus('Tabuleiro atualizado com sucesso', 'success');
             } catch (error) {
@@ -415,6 +488,92 @@
                 document.getElementById('serverStatus').textContent = 'offline';
                 showStatus('Erro ao conectar com servidor: ' + error.message, 'error');
             }
+        }
+        
+        // Atualizar histórico de ataques
+        function updateAttackHistory(ataques) {
+            const emptyMsg = document.getElementById('attackHistoryEmpty');
+            const container = document.getElementById('attackHistoryContainer');
+            const tbody = document.getElementById('attackHistoryBody');
+            
+            if (!ataques || ataques.length === 0) {
+                emptyMsg.style.display = 'block';
+                container.style.display = 'none';
+                return;
+            }
+            
+            emptyMsg.style.display = 'none';
+            container.style.display = 'block';
+            
+            tbody.innerHTML = '';
+            
+            // Mostrar ataques do mais recente para o mais antigo
+            for (let i = ataques.length - 1; i >= 0; i--) {
+                const ataque = ataques[i];
+                const tr = document.createElement('tr');
+                
+                let resultClass = '';
+                let resultText = '';
+                if (ataque.tipo === 'acerto') {
+                    resultClass = 'result-acerto';
+                    resultText = '💥 Acerto';
+                } else if (ataque.tipo === 'agua') {
+                    resultClass = 'result-agua';
+                    resultText = '💧 Água';
+                } else if (ataque.tipo === 'repetido') {
+                    resultClass = 'result-repetido';
+                    resultText = '🔁 Repetido';
+                }
+                
+                tr.innerHTML = `
+                    <td>${i + 1}</td>
+                    <td>${ataque.horario || '-'}</td>
+                    <td>${ataque.ip || 'desconhecido'}</td>
+                    <td>(${ataque.linha}, ${ataque.coluna})</td>
+                    <td class="${resultClass}">${resultText}</td>
+                `;
+                
+                tbody.appendChild(tr);
+            }
+        }
+        
+        // Atualizar status dos navios no painel lateral
+        function updateShipStatus(data) {
+            const shipList = document.getElementById('shipStatus');
+            if (!data.navios) return;
+            
+            // Definir navios esperados
+            const expected = [
+                { tipo: 'porta_avioes', nome: 'Porta-Aviões', pts: 5 },
+                { tipo: 'submarino', nome: 'Submarino 1', pts: 3 },
+                { tipo: 'submarino', nome: 'Submarino 2', pts: 3 },
+                { tipo: 'fragata', nome: 'Fragata 1', pts: 2 },
+                { tipo: 'fragata', nome: 'Fragata 2', pts: 2 },
+                { tipo: 'fragata', nome: 'Fragata 3', pts: 2 },
+            ];
+            
+            // Contar navios vivos por tipo
+            const aliveCount = {};
+            data.navios.forEach(n => {
+                aliveCount[n.tipo] = (aliveCount[n.tipo] || 0) + 1;
+            });
+            
+            // Atualizar lista
+            const used = {};
+            shipList.innerHTML = '';
+            expected.forEach(e => {
+                const key = e.tipo;
+                const usedCount = used[key] || 0;
+                const aliveOfType = aliveCount[key] || 0;
+                const isAlive = usedCount < aliveOfType;
+                
+                const li = document.createElement('li');
+                li.className = isAlive ? 'alive' : 'dead';
+                li.innerHTML = `<span class="status-indicator ${isAlive ? 'alive' : 'dead'}"></span>${e.nome} (${e.pts}pts)`;
+                shipList.appendChild(li);
+                
+                used[key] = usedCount + 1;
+            });
         }
         
         // Mostrar mensagem de status

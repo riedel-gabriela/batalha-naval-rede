@@ -37,14 +37,24 @@ batalha-naval-rede/
 
 **Responsabilidades:**
 - Criar FIFO para comunicação com navios
-- Inicializar processos navio via fork()
+- Inicializar processos navio via `fork()` + `execl()`
+- Armazenar PIDs dos processos-filho em `ship_pids[]`
 - Manter estado atual do tabuleiro
 - Arbitrar tiros recebidos
-- Atualizar estado de navios
+- Registrar IP real do atacante (extraído do socket com `inet_ntoa()`)
+- Registrar timestamp de cada ataque
+- Finalizar processo navio com `kill(SIGTERM)` ao ser atingido
+- Tratar `SIGCHLD` com `SIG_IGN` para evitar processos zombie
+
+**Tratamento de erros HTTP:**
+- `{"erro":"parametros_ausentes"}` – `/tiro` sem `linha` ou `coluna`
+- `{"erro":"fora_do_tabuleiro"}` – parâmetros fora da faixa 0-9
+- `{"erro":"comando_invalido"}` – endpoint inexistente
+- `{"erro":"metodo_nao_permitido"}` – método diferente de GET
 
 ### 2. Processos Navio (navio.c)
-- Processo independente criado via fork()
-- Simula movimento de navio periodicamente
+- Processo independente criado via `fork()` + `execl()` pelo miniwebserver
+- Movimenta-se ao longo da linha, alterando a coluna
 - Envia posição atual via FIFO
 - **Frota padrão:**
   - 1 porta-aviões (5 pontos)
@@ -52,23 +62,27 @@ batalha-naval-rede/
   - 3 fragatas (2 pontos cada)
 
 **Comportamento:**
-- Permanece 5 segundos em cada coluna
-- Move-se da esquerda para a direita
-- Cicla ao atingir o final da linha
-- Comunica via struct ShipEvent
+- Permanece pelo menos 5 segundos em cada coluna (`MIN_TIME_PER_COLUMN`)
+- Move-se para coluna contígua (±1)
+- Inverte direção ao atingir as bordas do tabuleiro (vai e volta)
+- Comunica via struct `ShipEvent` pela FIFO
+- Encerra graciosamente ao receber `SIGTERM`
 
 ### 3. Página HTML (index.html)
 - Interface de visualização em tempo real
 - Atualiza tabuleiro a cada 3 segundos (configurável)
 - Exibe navios ativos e pontos sofridos
-- Usa fetch() para consultar API
+- Usa `fetch()` para consultar endpoint `/estado_local`
+- **Histórico de ataques recebidos**: tabela com nº, horário, IP atacante, posição e resultado
+- Status dos navios atualizado dinamicamente (vivo/destruído)
 
 ### 4. Processo Atacante (attacker.c)
 - Lê lista de IPs do arquivo `config/teams.txt`
 - Dispara até 100 tiros contra equipes remotas
-- Utiliza endpoints HTTP das equipes
+- Estratégia inteligente: consulta `/status`, prioriza linhas com navios, padrão xadrez
 - Gera relatório final com:
-  - Navios afundados por equipe
+  - Navios afundados por equipe (IP)
+  - Tipos de navios destruídos por equipe (porta-aviões, submarinos, fragatas)
   - Pontuação total
   - Taxa de acerto
 
@@ -108,14 +122,20 @@ make run-server
 
 O servidor:
 1. Cria FIFO em `/tmp/batalha_naval_fifo`
-2. Inicializa FIFO escuta para eventos
-3. Inicia processos navio (fork)
-4. Abre socket na porta 8080
-5. Aguarda requisições HTTP
+2. Inicializa tabuleiro com 6 navios
+3. Abre FIFO para leitura não-bloqueante
+4. Cria 6 processos navio via `fork()` + `execl()`
+5. Abre socket na porta 8080
+6. Entra no loop principal com `select()`
 
 **Saída esperada:**
 ```
 Tabuleiro inicializado com 6 navios
+Criando processos navio via fork()...
+  Navio 100 (tipo=5, linha=1) criado com PID 12345
+  Navio 200 (tipo=3, linha=3) criado com PID 12346
+  ...
+Todos os 6 navios foram criados
 Servidor HTTP iniciado na porta 8080
 ```
 
@@ -160,12 +180,16 @@ curl http://127.0.0.1:8080/estado_local
 Resposta esperada:
 ```json
 {
-  "tabuleiro": {
-    "linhas": 10,
-    "colunas": 10
-  },
+  "tabuleiro": {"linhas": 10, "colunas": 10},
   "navios_ativos": 6,
-  "score_contra": 0
+  "score_contra": 0,
+  "ataque_count": 1,
+  "navios": [
+    {"id": 100, "linha": 1, "coluna": 3, "tipo": "porta_avioes"}
+  ],
+  "ataques": [
+    {"linha": 5, "coluna": 2, "tipo": "agua", "ip": "10.0.0.5", "horario": "14:30:05"}
+  ]
 }
 ```
 
@@ -209,6 +233,8 @@ Respostas possíveis:
 {"resultado":"acerto","tipo":"fragata","pontos":2}
 {"resultado":"acerto","tipo":"submarino","pontos":3}
 {"resultado":"acerto","tipo":"porta_avioes","pontos":5}
+{"erro":"parametros_ausentes"}
+{"erro":"fora_do_tabuleiro"}
 ```
 
 ### Teste remoto (entre equipes)
@@ -285,19 +311,22 @@ HTTP GET /tiro?linha=X&coluna=Y
         ↓
    miniwebserver recebe
         │
-        ├─ Posição fora do tabuleiro? → ERRO
+        ├─ Sem query string? → {"erro":"parametros_ausentes"}
         │
-        ├─ Posição já foi atacada? → REPETIDO
+        ├─ Parâmetros fora da faixa? → {"erro":"fora_do_tabuleiro"}
         │
-        └─ Verificar se há navio
+        ├─ Posição já foi atacada? → {"resultado":"repetido"}
+        │
+        └─ Verificar se há navio na posição
                 │
                 ├─ Sim → ACERTO
                 │        ├─ Enviar tipo + pontos
-                │        ├─ Destruir navio (kill)
-                │        └─ Registrar ataque
+                │        ├─ Destruir navio: kill(PID, SIGTERM)
+                │        ├─ Registrar ataque (IP, horário, posição, tipo)
+                │        └─ ship_pids[i] = -1
                 │
                 └─ Não → ÁGUA
-                         └─ Registrar ataque
+                         └─ Registrar ataque (IP, horário, posição)
 ```
 
 ## Cronograma de Desenvolvimento
@@ -341,13 +370,11 @@ ps aux | grep navio
 
 ## Melhorias Futuras
 
-- [ ] Validação de entrada robusta
 - [ ] Logging em arquivo
 - [ ] WebSocket para atualizações em tempo real
 - [ ] Persistência de estado em banco de dados
-- [ ] Interface web mais completa
 - [ ] Modo multiplayer com sincronização
-- [ ] Estratégias de IA para ataque
+- [ ] Múltiplos processos atacantes via fork()
 
 ## Documentação Obrigatória
 
@@ -372,6 +399,6 @@ Documentar no relatório as dificuldades e soluções encontradas.
 
 ---
 
-**Versão**: 1.0  
-**Última atualização**: 17 de março de 2026  
-**Status**: Pronto para implementação
+**Versão**: 2.0  
+**Última atualização**: 26 de março de 2026  
+**Status**: Implementação completa – pronto para testes e integração
