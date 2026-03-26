@@ -4,411 +4,609 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Batalha Naval em Rede</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --black: #000000;
+            --white: #FFFFFF;
+            --gray-100: #F5F5F5;
+            --gray-200: #E0E0E0;
+            --gray-400: #9E9E9E;
+            --gray-600: #616161;
+            --gray-800: #212121;
+            --border-thick: 3px solid var(--black);
+            --border-thin: 1px solid var(--black);
+            --font-sans: 'Space Grotesk', sans-serif;
+            --font-mono: 'Space Mono', monospace;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: var(--font-sans);
+            background: var(--white);
+            color: var(--black);
             min-height: 100vh;
-            padding: 20px;
         }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+
+        /* ─── HEADER ─── */
+        header {
+            border-bottom: var(--border-thick);
+            padding: 24px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        
-        h1 {
-            color: white;
-            text-align: center;
-            margin-bottom: 30px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+
+        header h1 {
+            font-family: var(--font-mono);
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
         }
-        
+
+        .server-status {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--gray-400);
+            display: inline-block;
+        }
+
+        .status-dot.online {
+            background: var(--black);
+        }
+
+        /* ─── MAIN LAYOUT ─── */
         .main-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 30px;
         }
-        
+
         .panel {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            padding: 24px 32px;
+            border-bottom: var(--border-thick);
         }
-        
-        .panel h2 {
-            color: #667eea;
-            margin-bottom: 15px;
-            font-size: 1.5em;
+
+        .panel:nth-child(odd) {
+            border-right: var(--border-thick);
         }
-        
-        .board {
-            display: grid;
-            grid-template-columns: repeat(10, 1fr);
-            gap: 2px;
-            margin-bottom: 15px;
+
+        .panel-title {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            padding-bottom: 8px;
+            border-bottom: var(--border-thin);
         }
-        
-        .cell {
-            width: 100%;
-            aspect-ratio: 1;
-            border: 2px solid #ddd;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7em;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            background: #f0f0f0;
-        }
-        
-        .cell:hover {
-            transform: scale(0.95);
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
-        }
-        
-        .cell.empty {
-            background: #e8f4f8;
-        }
-        
-        .cell.water {
-            background: #87ceeb;
-            color: #0077be;
-        }
-        
-        .cell.ship {
-            background: #90ee90;
-            color: #2d5a2d;
-        }
-        
-        .cell.hit {
-            background: #ff6b6b;
-            color: white;
-        }
-        
+
+        /* ─── STATS ─── */
         .stats {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 20px;
+            margin-bottom: 24px;
         }
-        
+
         .stat-box {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 5px;
-            border-left: 4px solid #667eea;
+            padding: 16px 0;
         }
-        
+
+        .stat-box:first-child {
+            border-right: var(--border-thin);
+            padding-right: 16px;
+        }
+
+        .stat-box:last-child {
+            padding-left: 16px;
+        }
+
         .stat-label {
-            color: #666;
-            font-size: 0.9em;
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            font-weight: 400;
             text-transform: uppercase;
-            margin-bottom: 5px;
+            letter-spacing: 2px;
+            color: var(--gray-600);
+            margin-bottom: 4px;
         }
-        
+
         .stat-value {
-            font-size: 1.8em;
-            font-weight: bold;
-            color: #667eea;
+            font-family: var(--font-mono);
+            font-size: 3.5rem;
+            font-weight: 700;
+            line-height: 1;
         }
-        
-        .info-section {
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 15px;
+
+        /* ─── BOARD ─── */
+        .board {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            border: var(--border-thick);
+            margin-bottom: 20px;
+            transition: opacity 0.15s ease;
         }
-        
-        .info-title {
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 8px;
+
+        .board.fetching {
+            opacity: 0.4;
         }
-        
+
+        .cell {
+            aspect-ratio: 1;
+            border: var(--border-thin);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 0.55rem;
+            font-weight: 400;
+            color: var(--gray-400);
+            cursor: default;
+            transition: background 0.1s ease;
+            background: var(--white);
+        }
+
+        .cell:hover {
+            background: var(--gray-100);
+        }
+
+        .cell.empty {
+            background: var(--white);
+        }
+
+        .cell.ship {
+            background: var(--black);
+            color: var(--white);
+            font-weight: 700;
+            font-size: 0.7rem;
+        }
+
+        .cell.hit {
+            background: var(--black);
+            color: var(--white);
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .cell.water {
+            background: var(--gray-200);
+            color: var(--gray-600);
+            font-size: 0.65rem;
+        }
+
+        /* ─── CONTROLS ─── */
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .controls label {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .controls input[type="number"] {
+            width: 56px;
+            padding: 6px 8px;
+            border: var(--border-thick);
+            border-radius: 0;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            text-align: center;
+            background: var(--white);
+            outline: none;
+        }
+
+        .controls input[type="number"]:focus {
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: var(--border-thick);
+            border-radius: 0;
+            background: var(--black);
+            color: var(--white);
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.1s ease;
+        }
+
+        .btn:hover {
+            background: var(--white);
+            color: var(--black);
+        }
+
+        .btn:active {
+            transform: translate(1px, 1px);
+        }
+
+        /* ─── SHIP STATUS ─── */
         .ship-list {
             list-style: none;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
         }
-        
+
         .ship-list li {
-            padding: 5px 0;
-            font-size: 0.9em;
-            color: #555;
-        }
-        
-        .ship-list li.alive {
-            color: #2d5a2d;
-            font-weight: bold;
-        }
-        
-        .ship-list li.dead {
-            color: #999;
-            text-decoration: line-through;
-        }
-        
-        .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 5px;
-        }
-        
-        .status-indicator.alive {
-            background: #4caf50;
-        }
-        
-        .status-indicator.dead {
-            background: #f44336;
-        }
-        
-        .update-button {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            margin-right: 10px;
-            transition: background 0.3s ease;
-        }
-        
-        .update-button:hover {
-            background: #764ba2;
-        }
-        
-        .update-interval {
+            padding: 6px 0;
+            border-bottom: var(--border-thin);
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-top: 15px;
         }
-        
-        .update-interval label {
-            font-weight: bold;
+
+        .ship-list li:last-child {
+            border-bottom: none;
         }
-        
-        .update-interval input {
-            width: 80px;
-            padding: 5px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-        }
-        
-        .footer {
+
+        .ship-list li .ship-indicator {
+            font-weight: 700;
+            font-size: 0.9rem;
+            width: 20px;
             text-align: center;
-            color: white;
-            margin-top: 30px;
-            font-size: 0.9em;
         }
-        
-        .status-message {
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-            text-align: center;
-            font-weight: bold;
+
+        .ship-list li.alive {
+            color: var(--black);
+            font-weight: 500;
         }
-        
-        .status-message.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+
+        .ship-list li.dead {
+            color: var(--gray-400);
+            text-decoration: line-through;
         }
-        
-        .status-message.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+
+        .ship-list li .ship-pts {
+            margin-left: auto;
+            font-size: 0.65rem;
+            color: var(--gray-600);
         }
-        
-        .status-message.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
+
+        /* ─── LEGEND ─── */
+        .legend {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: var(--border-thin);
         }
-        
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .legend-swatch {
+            width: 20px;
+            height: 20px;
+            border: var(--border-thin);
+            flex-shrink: 0;
+        }
+
+        .legend-swatch.sw-empty {
+            background: var(--white);
+        }
+
+        .legend-swatch.sw-ship {
+            background: var(--black);
+        }
+
+        .legend-swatch.sw-hit {
+            background: var(--black);
+            position: relative;
+        }
+
+        .legend-swatch.sw-hit::after {
+            content: 'X';
+            color: var(--white);
+            font-size: 0.6rem;
+            font-weight: 700;
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .legend-swatch.sw-water {
+            background: var(--gray-200);
+        }
+
+        /* ─── INSTRUCTIONS ─── */
+        .instructions {
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: var(--border-thin);
+        }
+
+        .instructions ul {
+            list-style: none;
+            font-size: 0.75rem;
+            line-height: 2;
+            color: var(--gray-600);
+        }
+
+        .instructions ul li::before {
+            content: '— ';
+            color: var(--black);
+            font-weight: 700;
+        }
+
+        /* ─── ATTACK HISTORY ─── */
         .full-width {
             grid-column: 1 / -1;
+            border-right: none !important;
         }
-        
+
+        .attack-empty {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--gray-400);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 32px 0;
+            text-align: center;
+        }
+
+        .attack-history-container {
+            max-height: 320px;
+            overflow-y: auto;
+        }
+
         .attack-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.85em;
-            margin-top: 10px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
         }
-        
+
+        .attack-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
         .attack-table th {
-            background: #667eea;
-            color: white;
-            padding: 8px 10px;
+            background: var(--black);
+            color: var(--white);
+            padding: 10px 12px;
             text-align: left;
-            font-weight: bold;
+            font-weight: 700;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            border: var(--border-thin);
         }
-        
+
         .attack-table td {
-            padding: 6px 10px;
-            border-bottom: 1px solid #eee;
+            padding: 8px 12px;
+            border: var(--border-thin);
         }
-        
-        .attack-table tr:nth-child(even) {
-            background: #f9f9f9;
+
+        .attack-table tbody tr:hover {
+            background: var(--gray-100);
         }
-        
-        .attack-table tr:hover {
-            background: #eef2ff;
+
+        .result-agua {
+            font-weight: 400;
         }
-        
-        .result-agua { color: #0077be; font-weight: bold; }
-        .result-acerto { color: #d32f2f; font-weight: bold; }
-        .result-repetido { color: #f57c00; font-weight: bold; }
-        
-        .attack-history-container {
-            max-height: 300px;
-            overflow-y: auto;
+
+        .result-acerto {
+            font-weight: 700;
+            background: var(--black) !important;
+            color: var(--white);
         }
-        
+
+        .result-repetido {
+            color: var(--gray-400);
+            font-style: italic;
+        }
+
+        /* ─── FOOTER ─── */
+        footer {
+            padding: 16px 32px;
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--gray-400);
+            text-align: center;
+        }
+
+        /* ─── STATUS MESSAGE ─── */
+        .status-message {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 8px 12px;
+            margin-bottom: 16px;
+            text-align: center;
+            border: var(--border-thin);
+            transition: opacity 0.3s ease;
+        }
+
+        .status-message.success {
+            background: var(--white);
+            color: var(--black);
+        }
+
+        .status-message.error {
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .status-message.info {
+            background: var(--gray-100);
+            color: var(--gray-800);
+        }
+
+        /* ─── RESPONSIVE ─── */
         @media (max-width: 768px) {
             .main-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .panel:nth-child(odd) {
+                border-right: none;
+            }
+
+            header {
+                flex-direction: column;
+                gap: 8px;
+                align-items: flex-start;
+            }
+
+            .stats .stat-value {
+                font-size: 2.5rem;
+            }
+
+            .controls {
+                flex-wrap: wrap;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>⚓ Batalha Naval em Rede</h1>
-        
-        <div class="main-grid">
-            <!-- Painel Esquerdo: Seu Tabuleiro -->
-            <div class="panel">
-                <h2>🎯 Seu Tabuleiro</h2>
-                <div id="statusMessage"></div>
-                <div class="board" id="localBoard"></div>
-                
-                <div class="stats">
-                    <div class="stat-box">
-                        <div class="stat-label">Navios Ativos</div>
-                        <div class="stat-value" id="activeShips">6</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-label">Pontos Sofridos</div>
-                        <div class="stat-value" id="pointsAgainst">0</div>
-                    </div>
+    <header>
+        <h1>Batalha Naval em Rede</h1>
+        <div class="server-status">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="serverStatus">OFFLINE</span>
+        </div>
+    </header>
+
+    <div class="main-grid">
+        <!-- Painel Esquerdo: Tabuleiro -->
+        <div class="panel">
+            <div class="panel-title">Tabuleiro Local</div>
+            <div id="statusMessage"></div>
+
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-label">Navios Ativos</div>
+                    <div class="stat-value" id="activeShips">6</div>
                 </div>
-                
-                <div class="update-interval">
-                    <label>Atualizar a cada (segundos):</label>
-                    <input type="number" id="updateInterval" value="3" min="1" max="60">
-                    <button class="update-button" onClick="updateBoard()">Atualizar Agora</button>
+                <div class="stat-box">
+                    <div class="stat-label">Pts Sofridos</div>
+                    <div class="stat-value" id="pointsAgainst">0</div>
                 </div>
             </div>
-            
-            <!-- Painel Direito: Informações -->
-            <div class="panel">
-                <h2>📊 Informações</h2>
-                
-                <div class="info-section">
-                    <div class="info-title">Status dos Navios</div>
-                    <ul class="ship-list" id="shipStatus">
-                        <li><span class="status-indicator alive"></span>Porta-Aviões (5pts)</li>
-                        <li><span class="status-indicator alive"></span>Submarino 1 (3pts)</li>
-                        <li><span class="status-indicator alive"></span>Submarino 2 (3pts)</li>
-                        <li><span class="status-indicator alive"></span>Fragata 1 (2pts)</li>
-                        <li><span class="status-indicator alive"></span>Fragata 2 (2pts)</li>
-                        <li><span class="status-indicator alive"></span>Fragata 3 (2pts)</li>
-                    </ul>
-                </div>
-                
-                <div class="info-section">
-                    <div class="info-title">Legenda</div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <div>
-                            <div style="width: 30px; height: 30px; background: #87ceeb; border: 2px solid #ddd; margin-bottom: 5px;"></div>
-                            <span>Água</span>
-                        </div>
-                        <div>
-                            <div style="width: 30px; height: 30px; background: #90ee90; border: 2px solid #ddd; margin-bottom: 5px;"></div>
-                            <span>Navio</span>
-                        </div>
-                        <div>
-                            <div style="width: 30px; height: 30px; background: #ff6b6b; border: 2px solid #ddd; margin-bottom: 5px;"></div>
-                            <span>Acerto</span>
-                        </div>
-                        <div>
-                            <div style="width: 30px; height: 30px; background: #e8f4f8; border: 2px solid #ddd; margin-bottom: 5px;"></div>
-                            <span>Desconhecido</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="info-section">
-                    <div class="info-title">Instruções</div>
-                    <ul style="font-size: 0.9em; line-height: 1.6; color: #555;">
-                        <li>O tabuleiro é atualizado automaticamente</li>
-                        <li>Seus navios se movem periodicamente</li>
-                        <li>Posições de acerto aparecem em vermelho</li>
-                        <li>O servidor está na porta 8080</li>
-                    </ul>
-                </div>
-            </div>
-            
-            <!-- Painel de Histórico de Ataques (largura total) -->
-            <div class="panel full-width">
-                <h2>📋 Histórico de Ataques Recebidos</h2>
-                <div id="attackHistoryEmpty" class="info-section" style="text-align: center; color: #999;">
-                    Nenhum ataque recebido ainda.
-                </div>
-                <div class="attack-history-container" id="attackHistoryContainer" style="display: none;">
-                    <table class="attack-table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Horário</th>
-                                <th>IP Atacante</th>
-                                <th>Posição</th>
-                                <th>Resultado</th>
-                            </tr>
-                        </thead>
-                        <tbody id="attackHistoryBody">
-                        </tbody>
-                    </table>
-                </div>
+
+            <div class="board" id="localBoard"></div>
+
+            <div class="controls">
+                <label>Intervalo (s)</label>
+                <input type="number" id="updateInterval" value="3" min="1" max="60">
+                <button class="btn" onclick="updateBoard()">Atualizar</button>
             </div>
         </div>
-        
-        <div class="footer">
-            <p>Batalha Naval em Rede - Sistema de Visualização</p>
-            <p>Servidor: <span id="serverStatus">offline</span></p>
+
+        <!-- Painel Direito: Informações -->
+        <div class="panel">
+            <div class="panel-title">Status da Frota</div>
+
+            <ul class="ship-list" id="shipStatus">
+                <li class="alive"><span class="ship-indicator">[■]</span>Porta-Aviões<span class="ship-pts">5 pts</span></li>
+                <li class="alive"><span class="ship-indicator">[■]</span>Submarino 1<span class="ship-pts">3 pts</span></li>
+                <li class="alive"><span class="ship-indicator">[■]</span>Submarino 2<span class="ship-pts">3 pts</span></li>
+                <li class="alive"><span class="ship-indicator">[■]</span>Fragata 1<span class="ship-pts">2 pts</span></li>
+                <li class="alive"><span class="ship-indicator">[■]</span>Fragata 2<span class="ship-pts">2 pts</span></li>
+                <li class="alive"><span class="ship-indicator">[■]</span>Fragata 3<span class="ship-pts">2 pts</span></li>
+            </ul>
+
+            <div class="legend">
+                <div class="legend-item"><div class="legend-swatch sw-empty"></div>Vazio</div>
+                <div class="legend-item"><div class="legend-swatch sw-ship"></div>Navio</div>
+                <div class="legend-item"><div class="legend-swatch sw-hit"></div>Acerto</div>
+                <div class="legend-item"><div class="legend-swatch sw-water"></div>Água</div>
+            </div>
+
+            <div class="instructions">
+                <ul>
+                    <li>Tabuleiro atualizado automaticamente</li>
+                    <li>Navios se movem a cada 5 segundos</li>
+                    <li>Servidor rodando na porta 8080</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Painel de Histórico de Ataques -->
+        <div class="panel full-width">
+            <div class="panel-title">Registro de Ataques Recebidos</div>
+            <div id="attackHistoryEmpty" class="attack-empty">
+                Nenhum ataque registrado
+            </div>
+            <div class="attack-history-container" id="attackHistoryContainer" style="display: none;">
+                <table class="attack-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Horário</th>
+                            <th>IP Atacante</th>
+                            <th>Posição</th>
+                            <th>Resultado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attackHistoryBody">
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
-    
+
+    <footer>
+        Batalha Naval em Rede &mdash; Sistema de Visualização
+    </footer>
+
     <script>
         // Configuração
         const BOARD_ROWS = 10;
         const BOARD_COLS = 10;
         const API_BASE = 'http://127.0.0.1:8080';
-        
+
         // Estado
         let boardState = [];
         let updateIntervalId = null;
-        
+
         // Inicializar tabuleiro
         function initBoard() {
             const board = document.getElementById('localBoard');
             board.innerHTML = '';
-            
+
             for (let row = 0; row < BOARD_ROWS; row++) {
                 for (let col = 0; col < BOARD_COLS; col++) {
                     const cell = document.createElement('div');
@@ -419,31 +617,33 @@
                 }
             }
         }
-        
+
         // Atualizar tabuleiro
         async function updateBoard() {
+            const board = document.getElementById('localBoard');
+            board.classList.add('fetching');
+
             try {
                 const response = await fetch(`${API_BASE}/estado_local`);
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    throw new Error(`HTTP ${response.status}`);
                 }
                 const data = await response.json();
-                
+
                 // Atualizar estatísticas
                 document.getElementById('activeShips').textContent = data.navios_ativos || 0;
                 document.getElementById('pointsAgainst').textContent = data.score_contra || 0;
-                document.getElementById('serverStatus').textContent = 'online';
-                
+                document.getElementById('serverStatus').textContent = 'ONLINE';
+                document.getElementById('statusDot').className = 'status-dot online';
+
                 // Resetar tabuleiro
-                const board = document.getElementById('localBoard');
                 const cells = board.querySelectorAll('.cell');
                 cells.forEach(cell => {
                     cell.className = 'cell empty';
-                    // Restaurar coordenada
                     const parts = cell.id.split('-');
                     cell.textContent = `${parts[1]}.${parts[2]}`;
                 });
-                
+
                 // Marcar navios no tabuleiro
                 if (data.navios && Array.isArray(data.navios)) {
                     data.navios.forEach(ship => {
@@ -451,7 +651,7 @@
                         const cell = document.getElementById(cellId);
                         if (cell) {
                             cell.className = 'cell ship';
-                            cell.textContent = '🚢';
+                            cell.textContent = '■';
                         }
                     });
                 }
@@ -464,67 +664,70 @@
                         if (cell) {
                             if (ataque.tipo === 'acerto') {
                                 cell.className = 'cell hit';
-                                cell.textContent = '💥';
+                                cell.textContent = 'X';
                             } else if (ataque.tipo === 'agua') {
                                 cell.className = 'cell water';
-                                cell.textContent = '💧';
+                                cell.textContent = '·';
                             } else if (ataque.tipo === 'repetido') {
                                 cell.className = 'cell water';
-                                cell.textContent = '🔁';
+                                cell.textContent = '·';
                             }
                         }
                     });
-                    
+
                     // Atualizar histórico de ataques
                     updateAttackHistory(data.ataques);
                 }
-                
+
                 // Atualizar status dos navios na sidebar
                 updateShipStatus(data);
-                
-                showStatus('Tabuleiro atualizado com sucesso', 'success');
+
+                showStatus('Atualizado', 'success');
             } catch (error) {
                 console.error('Erro ao atualizar:', error);
-                document.getElementById('serverStatus').textContent = 'offline';
-                showStatus('Erro ao conectar com servidor: ' + error.message, 'error');
+                document.getElementById('serverStatus').textContent = 'OFFLINE';
+                document.getElementById('statusDot').className = 'status-dot';
+                showStatus('Erro: ' + error.message, 'error');
+            } finally {
+                setTimeout(() => board.classList.remove('fetching'), 150);
             }
         }
-        
+
         // Atualizar histórico de ataques
         function updateAttackHistory(ataques) {
             const emptyMsg = document.getElementById('attackHistoryEmpty');
             const container = document.getElementById('attackHistoryContainer');
             const tbody = document.getElementById('attackHistoryBody');
-            
+
             if (!ataques || ataques.length === 0) {
                 emptyMsg.style.display = 'block';
                 container.style.display = 'none';
                 return;
             }
-            
+
             emptyMsg.style.display = 'none';
             container.style.display = 'block';
-            
+
             tbody.innerHTML = '';
-            
+
             // Mostrar ataques do mais recente para o mais antigo
             for (let i = ataques.length - 1; i >= 0; i--) {
                 const ataque = ataques[i];
                 const tr = document.createElement('tr');
-                
+
                 let resultClass = '';
                 let resultText = '';
                 if (ataque.tipo === 'acerto') {
                     resultClass = 'result-acerto';
-                    resultText = '💥 Acerto';
+                    resultText = '[X] ACERTO';
                 } else if (ataque.tipo === 'agua') {
                     resultClass = 'result-agua';
-                    resultText = '💧 Água';
+                    resultText = '[·] AGUA';
                 } else if (ataque.tipo === 'repetido') {
                     resultClass = 'result-repetido';
-                    resultText = '🔁 Repetido';
+                    resultText = '[~] REPETIDO';
                 }
-                
+
                 tr.innerHTML = `
                     <td>${i + 1}</td>
                     <td>${ataque.horario || '-'}</td>
@@ -532,16 +735,16 @@
                     <td>(${ataque.linha}, ${ataque.coluna})</td>
                     <td class="${resultClass}">${resultText}</td>
                 `;
-                
+
                 tbody.appendChild(tr);
             }
         }
-        
+
         // Atualizar status dos navios no painel lateral
         function updateShipStatus(data) {
             const shipList = document.getElementById('shipStatus');
             if (!data.navios) return;
-            
+
             // Definir navios esperados
             const expected = [
                 { tipo: 'porta_avioes', nome: 'Porta-Aviões', pts: 5 },
@@ -551,13 +754,13 @@
                 { tipo: 'fragata', nome: 'Fragata 2', pts: 2 },
                 { tipo: 'fragata', nome: 'Fragata 3', pts: 2 },
             ];
-            
+
             // Contar navios vivos por tipo
             const aliveCount = {};
             data.navios.forEach(n => {
                 aliveCount[n.tipo] = (aliveCount[n.tipo] || 0) + 1;
             });
-            
+
             // Atualizar lista
             const used = {};
             shipList.innerHTML = '';
@@ -566,43 +769,44 @@
                 const usedCount = used[key] || 0;
                 const aliveOfType = aliveCount[key] || 0;
                 const isAlive = usedCount < aliveOfType;
-                
+
                 const li = document.createElement('li');
                 li.className = isAlive ? 'alive' : 'dead';
-                li.innerHTML = `<span class="status-indicator ${isAlive ? 'alive' : 'dead'}"></span>${e.nome} (${e.pts}pts)`;
+                const indicator = isAlive ? '[■]' : '[□]';
+                li.innerHTML = `<span class="ship-indicator">${indicator}</span>${e.nome}<span class="ship-pts">${e.pts} pts</span>`;
                 shipList.appendChild(li);
-                
+
                 used[key] = usedCount + 1;
             });
         }
-        
+
         // Mostrar mensagem de status
         function showStatus(message, type) {
             const statusDiv = document.getElementById('statusMessage');
             statusDiv.textContent = message;
             statusDiv.className = `status-message ${type}`;
-            
+
             setTimeout(() => {
                 statusDiv.textContent = '';
                 statusDiv.className = '';
-            }, 3000);
+            }, 2000);
         }
-        
+
         // Iniciar atualização automática
         function startAutoUpdate() {
             const interval = parseInt(document.getElementById('updateInterval').value) * 1000;
-            
+
             if (updateIntervalId) {
                 clearInterval(updateIntervalId);
             }
-            
+
             updateBoard(); // Primeira atualização imediata
             updateIntervalId = setInterval(updateBoard, interval);
         }
-        
+
         // Event listeners
         document.getElementById('updateInterval').addEventListener('change', startAutoUpdate);
-        
+
         // Inicializar
         initBoard();
         startAutoUpdate();
