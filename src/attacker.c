@@ -21,6 +21,9 @@ typedef struct {
     int shots;
     int score;
     int ships_destroyed;
+    int pa_destroyed;
+    int sub_destroyed;
+    int frag_destroyed;
     int last_ship_count;
     int target_queue[BOARD_ROWS * BOARD_COLS][2];
     int target_queue_len;
@@ -233,12 +236,15 @@ int shoot(const char* host, int port, int row, int col, TeamStats* stats) {
         stats->hits++;
         if (strstr(response, "porta_avioes")) {
             stats->score += 5;
+            stats->pa_destroyed++;
             result = 5;
         } else if (strstr(response, "submarino")) {
             stats->score += 3;
+            stats->sub_destroyed++;
             result = 3;
         } else if (strstr(response, "fragata")) {
             stats->score += 2;
+            stats->frag_destroyed++;
             result = 2;
         } else {
             result = 1;
@@ -285,6 +291,9 @@ int main(int argc, char* argv[]) {
         teams[team_count].shots = 0;
         teams[team_count].score = 0;
         teams[team_count].ships_destroyed = 0;
+        teams[team_count].pa_destroyed = 0;
+        teams[team_count].sub_destroyed = 0;
+        teams[team_count].frag_destroyed = 0;
         teams[team_count].last_ship_count = -1;
         teams[team_count].target_queue_len = 0;
         teams[team_count].finished = 0;
@@ -396,6 +405,9 @@ int main(int argc, char* argv[]) {
         printf("  Tiros: %d\n", teams[i].shots);
         printf("  Acertos: %d\n", teams[i].hits);
         printf("  Navios destruídos: %d\n", teams[i].ships_destroyed);
+        printf("    Porta-aviões: %d\n", teams[i].pa_destroyed);
+        printf("    Submarinos:   %d\n", teams[i].sub_destroyed);
+        printf("    Fragatas:     %d\n", teams[i].frag_destroyed);
         printf("  Pontuação: %d\n", teams[i].score);
         printf("\n");
 

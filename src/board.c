@@ -1,6 +1,7 @@
 #include "board.h"
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 Board* board_init() {
     Board* board = (Board*)malloc(sizeof(Board));
@@ -63,7 +64,7 @@ int board_shoot(Board* board, int row, int col, const char* attacker_ip) {
         AttackRecord* attack = &board->attacks[board->attack_count++];
         attack->row = row;
         attack->col = col;
-        attack->timestamp = 0;
+        attack->timestamp = (double)time(NULL);
         attack->result = 2;  // repetido
         strcpy(attack->attacker_ip, attacker_ip);
         return 2;  // repetido
@@ -75,7 +76,7 @@ int board_shoot(Board* board, int row, int col, const char* attacker_ip) {
     AttackRecord* attack = &board->attacks[board->attack_count++];
     attack->row = row;
     attack->col = col;
-    attack->timestamp = 0;
+    attack->timestamp = (double)time(NULL);
     strcpy(attack->attacker_ip, attacker_ip);
     
     if (ship_idx != -1) {

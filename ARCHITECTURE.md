@@ -73,6 +73,13 @@ main(miniwebserver)
   │   └─ Aloca Board struct
   │       └─ Cria 6 navios (Ship[6])
   │
+  ├─ open(FIFO, O_RDONLY | O_NONBLOCK)
+  │
+  ├─ create_ships()  ← fork() + execl()
+  │   ├─ fork() → execl("./bin/navio", id, tipo, linha)
+  │   ├─ ship_pids[i] = pid do filho
+  │   └─ signal(SIGCHLD, SIG_IGN) para evitar zombies
+  │
   ├─ socket(AF_INET, SOCK_STREAM)
   │   └─ Bind port 8080
   │       └─ Listen para conexões
@@ -83,15 +90,20 @@ main(miniwebserver)
 ### 2. Movimento de Navio
 
 ```
-navio.c (processo fork)
+navio.c (processo criado via fork()+execl())
   │
   ├─ Recebe: ID, tipo, linha via argv
   │
-  └─ Loop:
-     ├─ Aguarda 5 segundos em coluna atual
+  ├─ Abre FIFO para escrita
+  │
+  ├─ Envia posição inicial (col=0)
+  │
+  └─ Loop de movimentação:
+     ├─ sleep(5) – permanece 5s na coluna atual
      │
-     ├─ Move para próxima coluna
-     │   (esquerda → direita, cicla ao final)
+     ├─ Move para coluna contígua (±1)
+     │   ├─ Se atingiu borda direita: inverte para esquerda
+     │   └─ Se atingiu borda esquerda: inverte para direita
      │
      └─ Escreve ShipEvent na FIFO:
         {
@@ -101,6 +113,8 @@ navio.c (processo fork)
           col: 3,
           timestamp: 1710779600
         }
+     
+     (encerra ao receber SIGTERM do miniwebserver)
 ```
 
 ### 3. Recebimento de Evento Navio
@@ -129,11 +143,16 @@ Cliente HTTP (atacante ou interface web)
      │
      miniwebserver - handle_http_request()
      │
+     ├─ Sem query string? → {"erro":"parametros_ausentes"}
+     │
      ├─ Parse URL: linha=3, coluna=5
      │
      ├─ Validar: 0 <= linha,col < 10
+     │   └─ Fora da faixa? → {"erro":"fora_do_tabuleiro"}
      │
-     ├─ board_shoot(3, 5, "IP_atacante")
+     ├─ Extrair IP do atacante via inet_ntoa(client_addr)
+     │
+     ├─ board_shoot(3, 5, "10.0.0.5")
      │   │
      │   ├─ board_is_hit(3, 5)?
      │   │   └─ SIM: retorna REPETIDO (resultado=2)
@@ -144,12 +163,15 @@ Cliente HTTP (atacante ou interface web)
      │       │   │
      │       │   ├─ ship.alive = 0
      │       │   ├─ board->alive_ships--
-     │       │   ├─ AttackRecord com resultado=1 (ACERTO)
+     │       │   ├─ AttackRecord: IP, timestamp, resultado=1 (ACERTO)
      │       │   └─ return 3 (tipo)
      │       │
      │       └─ Nenhum navio
-     │           ├─ AttackRecord com resultado=0 (ÁGUA)
+     │           ├─ AttackRecord: IP, timestamp, resultado=0 (ÁGUA)
      │           └─ return 0
+     │
+     ├─ Se ACERTO: kill(ship_pids[i], SIGTERM)
+     │             ship_pids[i] = -1
      │
      └─ Enviar JSON response via socket:
         {
@@ -326,26 +348,34 @@ Cliente:              Servidor (porta 8080):
 while (!shutdown_flag) {
     FD_ZERO(&readfds);
     FD_SET(server_socket, &readfds);  // Novo cliente?
+    FD_SET(fifo_fd, &readfds);         // Evento de navio?
     
     struct timeval tv;
-    tv.tv_sec = 1;
+    tv.tv_sec = 2;
     tv.tv_usec = 0;
     
     int activity = select(
-        server_socket + 1,
+        max_fd + 1,
         &readfds,
         NULL, NULL,
         &tv
     );
     
-    if (activity > 0 && FD_ISSET(server_socket, &readfds)) {
-        // Novo cliente HTTP
-        int client = accept(...);
-        // Processar requisição
-        // Enviar resposta
-        close(client);
+    if (activity > 0) {
+        // Ler eventos da FIFO (atualizar posições dos navios)
+        if (fifo_fd != -1 && FD_ISSET(fifo_fd, &readfds)) {
+            read_fifo_events();
+        }
+        
+        // Aceitar conexão HTTP
+        if (FD_ISSET(server_socket, &readfds)) {
+            int client = accept(...);
+            // Extrair IP do client_addr com inet_ntoa()
+            // Processar requisição
+            // Enviar resposta
+            close(client);
+        }
     }
-    // Verificar FIFO a cada 1 segundo
 }
 ```
 
@@ -415,12 +445,12 @@ main():
   Gerar relatório final
 ```
 
-**Estratégia:** Aleatória (simples para projeto pedagógico)
+**Estratégia:** Inteligente – consulta `/status`, padrão xadrez, busca vizinhos após acerto
 
-**Melhorias possíveis:**
-- Inteligente: atacar linhas conhecidas (via /status)
-- Adaptativa: se acerto, atacar vizinhos
-- Distribuída: múltiplos processos fork() atacando
+**Relatório final inclui:**
+- Tiros, acertos e pontuação por equipe (IP:porta)
+- Tipos de navios destruídos por equipe (porta-aviões, submarinos, fragatas)
+- Total geral e taxa de acerto
 
 ## Performance e Escalabilidade
 
@@ -498,8 +528,10 @@ T=10:    Navio 200 se move: (3,0) → (3,1)
 
 T=15:    Cliente 2 ataca (3,1):
          ├─ GET /tiro?linha=3&coluna=1
+         ├─ IP do atacante extraído do socket: "10.0.0.5"
          ├─ Navio 200 presente!
-         ├─ Mata navio: ships.alive = 0
+         ├─ board_shoot marca alive=0, registra IP e timestamp
+         ├─ kill(ship_pids[1], SIGTERM) → processo navio 200 encerrado
          └─ Responde: {"resultado":"acerto", "tipo":"submarino", "pontos":3}
 
 T=20:    Cliente 1 ataca (3,5) novamente:
@@ -517,16 +549,17 @@ T=25:    GET /status (atacante remoto):
 
 A arquitetura é **simples, educacional e funcional**. Demonstra:
 
-✅ Processos e fork()  
-✅ IPC via FIFO  
-✅ Servidor HTTP  
-✅ Sincronização básica  
-✅ Estado distribuído  
+✅ Processos e fork() + execl()  
+✅ IPC via FIFO (named pipe)  
+✅ Servidor HTTP com select()  
+✅ Sinalização: SIGTERM via kill() para destruir navios  
+✅ Estado distribuído com registro de IP e timestamp  
 ✅ JSON para APIs  
+✅ Interface HTML com histórico de ataques  
 
 Adequada para aprender SO sem complexidade desnecessária.
 
 ---
 
-**Versão:** 1.0  
-**Data:** 17 de março de 2026
+**Versão:** 2.0  
+**Data:** 26 de março de 2026
