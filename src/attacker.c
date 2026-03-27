@@ -100,20 +100,20 @@ char* http_request(const char* host, int port, const char* path) {
     return response;
 }
 
-static int extract_json_int(const char* json, const char* key) {
-    if (!json || !key) return 0;
+static int extract_json_int_from(const char* start, const char* key) {
+    if (!start || !key) return 0;
 
     char pattern[64];
     snprintf(pattern, sizeof(pattern), "\"%s\"", key);
 
-    const char* p = strstr(json, pattern);
+    const char* p = strstr(start, pattern);
     if (!p) return 0;
 
     p = strchr(p, ':');
     if (!p) return 0;
     p++;
 
-    while (*p == ' ' || *p == '"') p++;
+    while (*p == ' ') p++;
     return atoi(p);
 }
 
@@ -208,9 +208,17 @@ int get_status(const char* host, int port, int rows[BOARD_ROWS], int* row_count)
     char* response = http_request(host, port, "/status");
     if (!response) return -1;
 
-    int porta = extract_json_int(response, "porta_avioes");
-    int submarinos = extract_json_int(response, "submarinos");
-    int fragatas = extract_json_int(response, "fragatas");
+    /* Navegar até a seção "quantidade" para evitar
+       falso-positivos com nomes de tipo nos navios */
+    const char* quantidade = strstr(response, "\"quantidade\"");
+    if (!quantidade) {
+        free(response);
+        return -1;
+    }
+
+    int porta      = extract_json_int_from(quantidade, "porta_avioes");
+    int submarinos = extract_json_int_from(quantidade, "submarinos");
+    int fragatas   = extract_json_int_from(quantidade, "fragatas");
 
     if (row_count) {
         *row_count = parse_status_rows(response, rows);
@@ -349,9 +357,12 @@ int main(int argc, char* argv[]) {
             int target_row=-1, target_col=-1;
             if (!pop_target_cell(team, &target_row, &target_col)) {
                 if (!find_next_search_cell(team, rows, row_count, &target_row, &target_col)) {
-                    printf("[Equipe %s:%d] todas posições testadas (finalizando)\n", team->ip, team->port);
-                    team->finished = 1;
-                    active_teams--;
+                    // Navios se movem, resetar varredura para nova tentativa
+                    printf("[Equipe %s:%d] resetando varredura (navios se movem)\n", team->ip, team->port);
+                    for (int r = 0; r < BOARD_ROWS; r++)
+                        for (int c = 0; c < BOARD_COLS; c++)
+                            team->tried[r][c] = 0;
+                    team->target_queue_len = 0;
                     continue;
                 }
             }

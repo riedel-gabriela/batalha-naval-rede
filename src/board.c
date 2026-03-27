@@ -58,41 +58,42 @@ int board_shoot(Board* board, int row, int col, const char* attacker_ip) {
     if (row < 0 || row >= BOARD_ROWS || col < 0 || col >= BOARD_COLS) {
         return -1;  // Fora do tabuleiro
     }
-    
-    // Verificar se já foi atacado
-    if (board_is_hit(board, row, col)) {
+
+    // Verificar se há navio vivo na posição (tem prioridade sobre "repetido")
+    int ship_idx = board_get_ship_at(board, row, col);
+
+    if (ship_idx == -1 && board_is_hit(board, row, col)) {
+        // Sem navio e posição já atacada: repetido (não registra novo record)
+        return 2;
+    }
+
+    // Registrar ataque
+    if (board->attack_count < BOARD_ROWS * BOARD_COLS) {
         AttackRecord* attack = &board->attacks[board->attack_count++];
         attack->row = row;
         attack->col = col;
         attack->timestamp = (double)time(NULL);
-        attack->result = 2;  // repetido
         strcpy(attack->attacker_ip, attacker_ip);
-        return 2;  // repetido
+
+        if (ship_idx != -1) {
+            attack->result = 1;
+            attack->ship_type = board->ships[ship_idx].type;
+        } else {
+            attack->result = 0;
+            attack->ship_type = 0;
+        }
     }
-    
-    // Verificar se há navio
-    int ship_idx = board_get_ship_at(board, row, col);
-    
-    AttackRecord* attack = &board->attacks[board->attack_count++];
-    attack->row = row;
-    attack->col = col;
-    attack->timestamp = (double)time(NULL);
-    strcpy(attack->attacker_ip, attacker_ip);
-    
+
     if (ship_idx != -1) {
         // Acerto!
-        attack->result = 1;
-        attack->ship_type = board->ships[ship_idx].type;
         board->score_against += board->ships[ship_idx].type;
-        
+
         // Destruir navio
         board->ships[ship_idx].alive = 0;
         board->alive_ships--;
-        
+
         return board->ships[ship_idx].type;  // Retorna tipo do navio
     } else {
-        // Água
-        attack->result = 0;
         return 0;  // água
     }
 }
